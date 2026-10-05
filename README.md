@@ -1,37 +1,65 @@
 # AI Discussions on Bluesky
 
-**COMP3020 Social Web Analytics | Group Project**
+**COMP3020 Social Web Analytics | Group Project | Western Sydney University**
 
 ## Overview
 
-This project explores AI-related discussions on Bluesky using text mining, topic clustering, statistical analysis and social network analysis.
+This project investigates AI-related discussions on Bluesky using text mining, topic clustering, statistical analysis, and social network analysis.
+
+Public posts related to four AI keywords are analysed:
+
+- Artificial Intelligence
+- Generative AI
+- ChatGPT
+- Machine Learning
+
+The project examines the major topics discussed, differences in user engagement across topics, and the structure of user interactions through replies.
 
 ## Research Questions
 
-1. What are the main topics in AI-related discussions on Bluesky?
-2. Does user engagement differ across discussion topics?
-3. How are users connected through AI-related discussions?
+1. **Topic Analysis:** What are the main topics in AI-related discussions on Bluesky?
+2. **User Engagement:** Does user engagement differ across AI discussion topics?
+3. **Network Analysis:** How are users connected through AI-related discussions, and which users occupy central positions?
 
 ## Methodology
 
-- **Data Collection:** Collect public AI-related posts using the Bluesky API.
-- **Text Mining & Clustering:** Identify major discussion topics.
-- **Statistical Analysis:** Compare user engagement across topics.
-- **Social Network Analysis:** Examine user connections through reply interactions.
+### 1. Data Collection
+AI-related public posts are collected from Bluesky using the `bskyr` package. Raw API data is preserved before downstream cleaning and processing.
 
-## Technologies
+### 2. Text Mining and Topic Analysis
+Post text is cleaned and transformed for text analysis. Clustering methods are used to identify major topics within AI-related discussions.
 
-R, RStudio, Bluesky API, `bskyr`, `dplyr` and `igraph`.
+### 3. User Engagement Analysis
+Engagement metrics are compared across identified discussion topics using statistical analysis and hypothesis testing.
+
+### 4. Social Network Analysis
+Reply interactions between users are represented as a directed network. Network measures are used to examine connectivity and identify structurally important users.
 
 ## Repository Structure
 
 ```text
-├── data/          # Raw and processed datasets
-├── scripts/       # Data collection and analysis
-├── figures/       # Charts and visualisations
-├── report/        # Final project report
-└── poster/        # Project poster
+COMP3020-Bluesky-AI-Analysis/
+├── data/
+│   ├── raw/            # Original collected Bluesky data
+│   ├── processed/      # Processed datasets used for analysis
+│   └── pilot/          # Pilot keyword relevance datasets
+│
+├── scripts/
+│   ├── 01_data_collection.R
+│   ├── 02_text_analysis.R
+│   ├── 03_clustering.R
+│   ├── 04_hypothesis_testing.R
+│   ├── 05_network_analysis.R
+│   └── pilot_relevance_test.R
+│
+├── figures/            # Generated charts and network visualisations
+├── report/             # Analytical report
+├── poster/             # Final project poster
+├── archive/            # Earlier datasets retained for reference
+├── .gitignore
+└── README.md
 ```
+
 ## Team Members
 
 - Kimmy Le
