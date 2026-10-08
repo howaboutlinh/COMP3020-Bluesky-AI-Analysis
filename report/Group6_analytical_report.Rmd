@@ -15,6 +15,10 @@ output:
     fig_caption: true
 geometry: margin=2cm
 fontsize: 10pt
+header-includes:
+  - \usepackage{pdfpages}
+  - \AtBeginDocument{\includepdf[pages=1]{Group6_Cover_Sheet.pdf}}
+
 ---
 
 ```{r setup, include=FALSE}
