@@ -2,10 +2,20 @@
 title: "AI Discussions on Bluesky: Topics, Engagement and Follow Networks"
 subtitle: "COMP3020 Social Web Analytics - Group Project"
 author: |
-  | **Group 6**
-  | Kimmy Le (22193952) – contribution 30%
-  | Phoebe Le (22122352) – contribution 40%
-  | Quinn Nguyen (22148559) – contribution 30%
+  \renewcommand{\arraystretch}{1.6}
+  \begin{tabular}{|p{5cm}|p{3.5cm}|p{3cm}|}
+  \hline
+  \multicolumn{3}{|l|}{\textbf{Group 6}} \\
+  \hline
+  \textbf{Group members} & \textbf{SID} & \textbf{Contribution} \\
+  \hline
+  Kimmy Le & 22193952 & 30\% \\
+  \hline
+  Phoebe Le & 22122352 & 40\% \\
+  \hline
+  Quinn Nguyen & 22148559 & 30\% \\
+  \hline
+  \end{tabular}
 date: "9 October 2026"
 output:
   pdf_document:
@@ -18,7 +28,6 @@ fontsize: 10pt
 header-includes:
   - \usepackage{pdfpages}
   - \AtBeginDocument{\includepdf[pages=1]{Group6_Cover_Sheet.pdf}}
-
 ---
 
 ```{r setup, include=FALSE}
