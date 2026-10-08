@@ -1,0 +1,421 @@
+---
+pagetitle: Exploring AI Discussions on Bluesky
+output:
+  pdf_document:
+    toc: true
+    toc_depth: '3'
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: true
+    fig_caption: true
+    self_contained: true
+    css: "report-style.css"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE,
+  fig.align="center", out.width="94%")
+library(dplyr)
+
+root_candidates <- unique(normalizePath(c(getwd(), file.path(getwd(), "..")),
+  winslash="/", mustWork=FALSE))
+root_matches <- root_candidates[
+  file.exists(file.path(root_candidates,"README.md")) &
+  dir.exists(file.path(root_candidates,"data","processed")) &
+  dir.exists(file.path(root_candidates,"figures"))]
+if (!length(root_matches)) stop("Could not locate repository root.")
+project_root <- root_matches[[1]]
+processed_dir <- file.path(project_root,"data","processed")
+pilot_dir <- file.path(project_root,"data","pilot")
+figure_dir <- file.path(project_root,"figures")
+
+read_csv <- function(path) {
+  if (!file.exists(path)) stop("Missing report input: ",path)
+  read.csv(path, stringsAsFactors=FALSE, check.names=FALSE, na.strings="")
+}
+pcsv <- function(name) read_csv(file.path(processed_dir,name))
+
+posts <- pcsv("bluesky_posts.csv")
+text_posts <- pcsv("bluesky_text_posts.csv")
+text_analysis <- pcsv("bluesky_text_analysis.csv")
+duplicate_log <- pcsv("bluesky_text_duplicate_log.csv")
+term_frequencies <- pcsv("bluesky_term_frequencies.csv")
+clustered_posts <- pcsv("bluesky_clustered_posts.csv")
+elbow_values <- pcsv("clustering_elbow_values.csv")
+cluster_top_terms <- pcsv("clustering_top_terms.csv")
+representative_posts <- pcsv("clustering_representative_posts.csv")
+text_representation <- readRDS(file.path(processed_dir,"bluesky_text_representation.rds"))
+pilot_results <- read_csv(file.path(pilot_dir,"pilot_keyword_results.csv"))
+
+rq2_posts <- pcsv("rq2_engagement_by_topic.csv")
+rq2_distribution <- pcsv("rq2_engagement_distribution.csv")
+rq2_tests <- pcsv("rq2_test_results.csv")
+rq2_posthoc <- pcsv("rq2_posthoc_comparisons.csv")
+rq2_audit <- pcsv("rq2_sample_audit.csv")
+
+network_edges <- pcsv("bluesky_network_edges.csv")
+rq3_summary <- pcsv("rq3_network_summary.csv")
+rq3_centrality <- pcsv("rq3_user_centrality.csv")
+rq3_components <- pcsv("rq3_component_summary.csv")
+
+metric_value <- function(data,key) {
+  x <- data$value[data$metric==key]
+  if (length(x)!=1) stop("Expected one value for metric: ",key)
+  as.numeric(x)
+}
+audit_value <- function(key) {
+  x <- rq2_audit$value[rq2_audit$measure==key]
+  if (length(x)!=1) stop("Expected one RQ2 audit value for: ",key)
+  as.numeric(x)
+}
+network_value <- function(key) metric_value(rq3_summary,key)
+fmt_count <- function(x) format(x,big.mark=",",scientific=FALSE,trim=TRUE)
+
+n_posts <- nrow(posts)
+n_authors <- length(unique(posts$author_did[!is.na(posts$author_did)]))
+n_text <- nrow(text_posts)
+n_unique_text <- nrow(text_analysis)
+n_duplicates <- nrow(duplicate_log)
+n_zero_term <- sum(text_analysis$retained_term_count==0)
+n_clustered <- nrow(clustered_posts)
+n_clusters <- length(unique(clustered_posts$cluster))
+n_vocab <- length(text_representation$vocabulary)
+n_parent_posts <- sum(!is.na(posts$parent_uri)&nzchar(posts$parent_uri))
+parent_did <- sub("^at://([^/]+)/.*$","\\1",posts$parent_uri)
+valid_parent <- !is.na(posts$parent_uri)&grepl("^at://did:[^/]+/",posts$parent_uri)
+n_self_replies <- sum(valid_parent & posts$author_did==parent_did,na.rm=TRUE)
+
+cluster_rows <- match(clustered_posts$uri,text_representation$uri)
+if (anyNA(cluster_rows)) stop("RQ1 URI alignment failed in report.")
+clustered_tfidf <- text_representation$tf_idf_matrix[cluster_rows,,drop=FALSE]
+within_ss <- sum(vapply(sort(unique(clustered_posts$cluster)),function(k) {
+  x <- clustered_tfidf[clustered_posts$cluster==k,,drop=FALSE]
+  sum(rowSums(sweep(x,2,colMeans(x),"-")^2))
+},numeric(1)))
+total_ss <- sum(rowSums(sweep(clustered_tfidf,2,colMeans(clustered_tfidf),"-")^2))
+between_ss <- total_ss-within_ss
+between_total <- between_ss/total_ss
+
+primary_test <- rq2_tests[grepl("^Primary",rq2_tests$analysis),]
+sensitivity_test <- rq2_tests[grepl("^Sensitivity",rq2_tests$analysis),]
+rq2_zero_share <- mean(rq2_posts$total_engagement==0)
+rq2_median <- median(rq2_posts$total_engagement)
+rq2_max <- max(rq2_posts$total_engagement)
+
+n_network_users <- network_value("vertices")
+n_network_edges <- network_value("directed_edges")
+n_network_replies <- network_value("total_reply_interactions")
+n_weak_components <- network_value("weak_components")
+n_strong_components <- network_value("strong_components")
+largest_component <- network_value("largest_weak_component_size")
+largest_component_share <- network_value("largest_weak_component_proportion")
+network_density <- network_value("density")
+network_reciprocity <- network_value("reciprocity")
+component_frequency <- table(rq3_components$vertices)
+component_count <- function(size) unname(component_frequency[as.character(size)])
+mapped_network_users <- network_value("mapped_network_users")
+unmapped_network_users <- network_value("unmapped_network_users")
+
+stopifnot(n_posts==976,n_text==964,n_unique_text==903,n_clustered==855,
+  n_clusters==7,sum(table(clustered_posts$cluster))==855,
+  audit_value("primary_posts_included")==nrow(rq2_posts),nrow(rq2_posts)==907,
+  primary_test$n==907,sensitivity_test$n==855,
+  n_network_users==length(unique(c(network_edges$from,network_edges$to))),
+  n_network_edges==nrow(network_edges),n_network_replies==sum(network_edges$weight))
+
+cluster_descriptions <- c(
+  "Broad AI and generative-AI opinions, use and news",
+  "Repeated OpenAI rogue-agent and leaked-images story",
+  "Remote machine-learning and engineering job advertisements",
+  "Technical machine learning, models, research and optimisation",
+  "AI art, Stable Diffusion and Japanese hashtag-heavy content",
+  "Artificial/superintelligence, politics and geopolitics",
+  "OpenAI agents, government websites and access/security reporting")
+```
+
+```{r report-cover, results='asis'}
+cat('<header class="report-cover">',
+  '<p class="report-kicker">COMP3020 Social Web Analytics</p>',
+  '<h1 class="toc-ignore">Exploring AI Discussions on Bluesky</h1>',
+  '<p class="report-subtitle">Topic Clustering, User Engagement and Observed Reply-Network Analysis</p>',
+  '<div class="report-meta">',
+  '<div><span class="meta-label">Institution</span><span>Western Sydney University</span></div>',
+  '<div><span class="meta-label">Academic year</span><span>2026</span></div>',
+  '<div class="report-authors"><span class="meta-label">Authors</span>',
+  '<span>Kimmy Le · Phoebe Le · Quinn Nguyen</span></div>',
+  '</div></header>',sep="\n")
+```
+
+# Executive Summary
+
+AI-related discussion in the collected Bluesky sample was lexically diverse but not cleanly divided into seven natural topics. K-means produced seven reproducible **descriptive lexical clusters**, while inspection supported approximately three broader substantive themes: general generative-AI use, criticism and news; technical machine learning, research and models; and artificial/superintelligence with political commentary.
+
+Engagement distributions differed significantly across the seven clusters, but the association was small and remained small after repeated-text posts were excluded. Meanwhile, observed reply activity was extremely sparse and fragmented: most connected users appeared in isolated pairs or very small components rather than one cohesive discussion network.
+
+```{r analysis-at-a-glance, results='asis'}
+cards <- list(
+  c("Data",paste0(fmt_count(n_posts)," posts"),paste0(fmt_count(n_authors)," authors"),paste0(fmt_count(n_text)," usable-text posts")),
+  c("RQ1 · Lexical structure",paste0(n_clusters," clusters"),paste0(fmt_count(n_clustered)," clusterable posts"),"≈3 broader themes · weak separation"),
+  c("RQ2 · Engagement",paste0(fmt_count(primary_test$n)," analysed posts"),paste0("H(6) = ",formatC(primary_test$statistic_h,digits=2,format="f"),", p < .001"),paste0("ε² = ",sub("^0","",formatC(primary_test$effect_size_value,digits=3,format="f"))," · small effect")),
+  c("RQ3 · Reply network",paste0(fmt_count(n_network_users)," connected users"),paste0(fmt_count(n_weak_components)," weak components"),paste0("Largest = ",largest_component," · density ",sub("^0","",formatC(network_density,digits=5,format="f")))))
+card_html <- vapply(cards,function(x) paste0('<article class="finding-card"><span class="finding-kicker">',x[1],'</span><strong>',x[2],'</strong><span>',x[3],'</span><small>',x[4],'</small></article>'),character(1))
+cat('<section class="finding-grid">',paste(card_html,collapse="\n"),'</section>',sep="\n")
+```
+
+<aside class="key-finding">
+<div class="callout-label">Integrated finding</div>
+<h2>Topical variety did not produce a cohesive sampled interaction network</h2>
+<p>The corpus contained several lexical patterns, yet cluster membership accounted for little engagement variation and the observed reply graph separated into `r fmt_count(n_weak_components)` small components. High post engagement and structural network centrality are therefore distinct properties in this sample.</p>
+</aside>
+
+# Introduction
+
+Social platforms host AI discussion ranging from model development and workplace use to art, public criticism, news and geopolitics. This report studies a reproducible sample of public Bluesky posts retrieved through four search terms—`artificial intelligence`, `machine learning`, `ChatGPT` and `generative AI`—and connects three levels of analysis: what language patterns appear, whether engagement differs across those patterns, and how sampled users connect through replies.
+
+The analysis is observational. It characterises posts and reply relationships visible in the collected sample; it does not represent all AI discussion or the complete Bluesky social graph.
+
+## Research Questions
+
+1. **RQ1:** What are the main topics in AI-related discussions on Bluesky?
+2. **RQ2:** Does user engagement differ across AI discussion topics?
+3. **RQ3:** How are users connected through AI-related discussions, and which users occupy central positions?
+
+# Data Collection and Preparation
+
+The stored canonical collection contains **`r fmt_count(n_posts)` posts** from **`r fmt_count(n_authors)` unique authors**. It includes **`r fmt_count(n_parent_posts)` posts with parent-URI information**; Step 01 excluded **`r fmt_count(n_self_replies)` self-replies**, leaving **`r fmt_count(sum(network_edges$weight))` non-self reply interactions**. Using the stored data makes the report reproducible without recollecting changing live-platform content.
+
+## Search-term relevance
+
+`r unique(pilot_results$posts_tested)` posts per search term were manually assessed in the pilot study. Relevance varied from `r min(pilot_results$relevance_rate)`% to `r max(pilot_results$relevance_rate)`%, demonstrating both the usefulness and imperfection of keyword retrieval.
+
+```{r pilot-table}
+pilot_results %>% transmute(`Search term`=keyword,`Relevant posts`=relevant_posts,
+  `Posts inspected`=posts_tested,`Observed relevance`=paste0(relevance_rate,"%")) %>%
+  knitr::kable(align=c("l","r","r","r"),
+    caption="Table 1. Pilot relevance assessment for the four collection terms")
+```
+
+## Analytical samples
+
+Of the collected posts, **`r fmt_count(n_text)`** had usable text. Removing **`r n_duplicates`** later occurrences of exactly duplicated text produced **`r fmt_count(n_unique_text)`** unique-text documents for representation. After document-frequency filtering, **`r n_zero_term`** documents contained no retained terms; the remaining **`r fmt_count(n_clustered)`** were clustered.
+
+For engagement analysis, duplicate posts remained genuine post-level observations. Where possible, a removed duplicate inherited the cluster of its retained identical-text post, producing an RQ2 sample of **`r fmt_count(nrow(rq2_posts))` posts**. The network analysis used only users appearing in at least one observed non-self reply edge.
+
+```{r dataset-summary}
+data.frame(Stage=c("Canonical collected posts","Posts with usable text",
+  "Unique-text representation documents","Clusterable unique-text posts",
+  "Topic-assignable posts for engagement","Users in observed reply network"),
+  N=c(n_posts,n_text,n_unique_text,n_clustered,nrow(rq2_posts),n_network_users)) %>%
+  mutate(N=fmt_count(N)) %>% knitr::kable(align=c("l","r"),
+    caption="Table 2. Analytical dataset summary")
+```
+
+# Methodology
+
+## Text preprocessing and TF-IDF
+
+Text was lowercased; common contractions were expanded; URLs, mentions, punctuation, numbers and stopwords were removed; and remaining text was tokenised. The domain term `ai` was retained despite its length. Exact duplicate text was removed before representation to prevent repeated wording from disproportionately shaping clusters.
+
+Terms had to occur in at least `r text_representation$settings$minimum_document_frequency` documents and in no more than `r 100*text_representation$settings$maximum_document_proportion`% of documents. Term frequency was multiplied by inverse document frequency, log(N/df), and each document vector was L2-normalised. The final vocabulary contained **`r fmt_count(n_vocab)` terms**.
+
+## K-means clustering
+
+K-means models for k = 2 through k = 10 were compared using within-cluster sum of squares (WSS), cluster sizes, characteristic terms and centroid-near examples. The deterministic final model used k = 7, seed 3020, 50 random starts and 100 maximum iterations.
+
+The solution had within-cluster SS **`r formatC(within_ss,digits=4,format="f")`**, between-cluster SS **`r formatC(between_ss,digits=4,format="f")`**, and between/total SS **`r formatC(between_total,digits=5,format="f")`**. This low ratio motivates interpreting the groups as descriptive lexical clusters rather than definitive natural topics.
+
+## Engagement hypothesis testing
+
+Total engagement was defined without differential weighting:
+
+\[
+\text{total engagement}=\text{likes}+\text{reposts}+\text{replies}+\text{quotes}.
+\]
+
+The distribution was zero-heavy, strongly right-skewed and contained extreme observations, while cluster sizes and spreads differed substantially. A one-way ANOVA was therefore not a defensible primary model. The rank-based Kruskal–Wallis test evaluated:
+
+- **H0:** total-engagement distributions are equal across all seven lexical clusters;
+- **H1:** at least one cluster differs.
+
+Epsilon-squared quantified the omnibus effect. A significant omnibus result was followed by pairwise Wilcoxon rank-sum tests with Holm correction. The primary analysis included assignable repeated-text posts; a sensitivity analysis retained only the `r fmt_count(sensitivity_test$n)` canonical unique-text clustered posts.
+
+## Observed reply-network analysis
+
+A directed edge **reply author → parent-post author** represents a reply observed in the collected posts. Edge weight counts replies for that ordered user pair. This is not a follower, friendship or endorsement network.
+
+The edge-list graph was analysed using degree, strength, weighted directed PageRank and unweighted directed betweenness. Unweighted betweenness was appropriate because reply frequency measures interaction strength, whereas shortest-path weights conventionally represent distance. Weak and strong components, density and reciprocity described overall structure. Users without an observed reply edge cannot appear in this edge-list-only graph.
+
+# Results
+
+## RQ1 — AI discussion themes
+
+### Selecting seven lexical clusters
+
+```{r rq1-elbow, fig.cap="Figure 1. WSS declined gradually across candidate values of k; the absence of a sharp elbow supports cautious, descriptive use of the selected seven-cluster solution."}
+knitr::include_graphics(file.path(figure_dir,"rq1_elbow_plot.png"))
+```
+
+The gradual elbow did not identify a single indisputable value of (k). Seven clusters provided a reproducible lexical partition that separated important technical and political language patterns, but only **`r formatC(100*between_total,digits=2,format="f")`%** of total vector variation lay between clusters.
+
+### Cluster size and interpretation
+
+```{r rq1-cluster-table}
+clustered_posts %>% count(cluster,name="Posts") %>%
+  mutate(Description=cluster_descriptions[cluster],
+    Share=paste0(formatC(100*Posts/sum(Posts),digits=1,format="f"),"%")) %>%
+  select(Cluster=cluster,Posts,Share,Description) %>%
+  knitr::kable(align=c("r","r","r","l"),
+    caption="Table 3. Seven descriptive lexical clusters in the canonical RQ1 solution")
+```
+
+```{r rq1-cluster-sizes, fig.cap="Figure 2. The lexical clusters were highly unequal in size; Cluster 1 contained more than half of the clustered corpus, while several specialised clusters were very small."}
+knitr::include_graphics(file.path(figure_dir,"rq1_cluster_sizes.png"))
+```
+
+The seven clusters should not be read as seven equally clear natural topics. Inspection of characteristic terms and centroid-near posts supported approximately three broader, more stable themes:
+
+1. general generative-AI use, criticism and news;
+2. technical machine learning, research and models;
+3. artificial/superintelligence and political commentary.
+
+Smaller clusters were shaped by repeated news, job or promotional templates, language and hashtag conventions, and event-specific OpenAI reporting.
+
+### Corpus vocabulary
+
+```{r rq1-top-terms, fig.cap="Figure 3. The most frequent retained terms establish the corpus-wide AI focus but do not, by themselves, define the seven clusters."}
+knitr::include_graphics(file.path(figure_dir,"rq1_top_terms.png"))
+```
+
+The frequent-term profile confirms the shared AI vocabulary underlying the corpus. Cluster interpretation instead relied on cluster-specific TF-IDF terms and representative lexical patterns, avoiding the assumption that a frequent word necessarily distinguishes a topic.
+
+## RQ2 — Engagement differences
+
+The primary analysis contained **`r fmt_count(audit_value("unique_text_clustered_posts"))` canonical clustered posts** plus **`r fmt_count(audit_value("duplicate_posts_mapped_to_cluster"))` mapped duplicate posts**, for **`r fmt_count(primary_test$n)` observations**. Another **`r fmt_count(audit_value("posts_excluded_no_cluster"))` usable-text posts** lacked an assignable cluster.
+
+Approximately **`r formatC(100*rq2_zero_share,digits=1,format="f")`%** of analysed posts had zero engagement. The overall median was **`r rq2_median`**, while the maximum was **`r fmt_count(rq2_max)`**, indicating strong right skew and a consequential extreme observation.
+
+```{r rq2-figure, fig.cap="Figure 4. Total engagement across lexical clusters. The log1p axis preserves zero values while compressing the long right tail, including the maximum of 1,599 interactions."}
+knitr::include_graphics(file.path(figure_dir,"rq2_engagement_by_topic.png"))
+```
+
+The displayed `log1p` transformation means the plotted position is based on log(1 + engagement), while axis labels remain in original engagement-count units. It improves visibility without deleting high-engagement posts.
+
+```{r rq2-test-table}
+rq2_tests %>% transmute(
+  Analysis=ifelse(grepl("Primary",analysis),"Primary","Unique-text sensitivity"),
+  N=n,Test="Kruskal–Wallis",`H (df = 6)`=formatC(statistic_h,digits=2,format="f"),
+  `p-value`=ifelse(p_value<.001,"< .001",formatC(p_value,digits=3,format="f")),
+  `Epsilon-squared`=formatC(effect_size_value,digits=3,format="f")) %>%
+  knitr::kable(align=c("l","r","l","r","r","r"),
+    caption="Table 4. Primary and duplicate-exclusion sensitivity tests for total engagement")
+```
+
+The primary test was significant, H(6) = `r formatC(primary_test$statistic_h,digits=2,format="f")`, p < .001, but epsilon-squared was only **`r formatC(primary_test$effect_size_value,digits=3,format="f")`**, a small association. The sensitivity result was also significant, H(6) = `r formatC(sensitivity_test$statistic_h,digits=2,format="f")`, p < .001, epsilon-squared = `r formatC(sensitivity_test$effect_size_value,digits=3,format="f")`. Excluding repeated-text posts therefore did not change the substantive conclusion.
+
+```{r rq2-posthoc-table}
+rq2_posthoc %>% filter(significant_after_holm) %>% transmute(
+  Comparison=paste0("Cluster ",cluster_1," vs Cluster ",cluster_2),
+  `Higher mean rank`=higher_mean_rank_cluster,`Median 1`=median_cluster_1,
+  `Median 2`=median_cluster_2,
+  `Holm-adjusted p`=formatC(adjusted_p_value_holm,digits=4,format="f")) %>%
+  knitr::kable(align=c("l","l","r","r","r"),
+    caption="Table 5. Significant Holm-adjusted pairwise Wilcoxon comparisons")
+```
+
+Cluster 1 ranked above Cluster 3, while Cluster 5 ranked above Clusters 2, 3, 4, 6 and 7. These directions use pairwise mean ranks, not medians alone. Cluster 5 had the highest median engagement (3) but contained only 13 posts and was influenced by language and hashtag patterns. Cluster 1 had median 1 and contained the 1,599-interaction observation; all other clusters had median 0. It would therefore be inappropriate to generalise that “AI art is the most engaging topic.”
+
+**RQ2 answer.** Engagement distributions differed across the seven lexical clusters, but the magnitude of association was small. This is an association within the sampled posts, not evidence that a topic causes engagement.
+
+## RQ3 — Observed reply-network structure
+
+The network contained **`r fmt_count(n_network_users)` users**, **`r fmt_count(n_network_edges)` directed user pairs** and **`r fmt_count(n_network_replies)` observed replies**. Density was **`r formatC(network_density,digits=5,format="f")`** and reciprocity was **`r network_reciprocity`**.
+
+```{r rq3-summary-table}
+data.frame(Measure=c("Users appearing in an observed reply edge","Unique directed user pairs",
+  "Observed reply interactions","Network density","Reciprocity","Weak components",
+  "Strong components","Largest weak component","Largest-component share",
+  "Median total degree","Median total strength"),
+  Value=c(fmt_count(n_network_users),fmt_count(n_network_edges),fmt_count(n_network_replies),
+    formatC(network_density,digits=5,format="f"),network_reciprocity,
+    fmt_count(n_weak_components),fmt_count(n_strong_components),
+    paste0(largest_component," users"),
+    paste0(formatC(100*largest_component_share,digits=2,format="f"),"%"),
+    network_value("median_unweighted_degree"),network_value("median_weighted_degree_strength"))) %>%
+  knitr::kable(align=c("l","r"),caption="Table 6. Observed reply-network summary")
+```
+
+The graph was highly fragmented: `r component_count(2)` components contained two users, `r component_count(3)` contained three, `r component_count(4)` contained four, and only `r component_count(5)` contained five. All `r fmt_count(n_strong_components)` strong components were singletons, no reciprocal pair was present, and no directed path extended to length two. Consequently, every directed betweenness value was zero and no broad brokerage structure was observed.
+
+```{r rq3-network-figure, fig.cap="Figure 5. The largest weakly connected component of the observed reply network. Arrows run from reply author to parent-post author; node size represents weighted directed PageRank. Only 5 of 240 edge-connected users appear in this figure."}
+knitr::include_graphics(file.path(figure_dir,"rq3_reply_network.png"))
+```
+
+The largest component is a four-to-one reply pattern: four sampled reply authors each replied to the same target. The central target consequently has the highest in-degree (4) and PageRank in the observed network. Its handle was unavailable because the parent post fell outside the collected search results, so the figure uses a safe “Unmapped user” label. This position indicates centrality only in the sampled reply network, not global influence on Bluesky.
+
+Of the `r fmt_count(n_network_users)` network users, `r fmt_count(mapped_network_users)` mapped unambiguously to handles and `r fmt_count(unmapped_network_users)` did not. Every unmapped user was a target-only parent-post author whose original post was outside the collection. Community detection was omitted because partitioning `r fmt_count(n_weak_components)` tiny disconnected components would offer little defensible substantive interpretation.
+
+**RQ3 answer.** Sampled reply activity was sparse and highly fragmented. Most interactions occurred in isolated pairs or very small components rather than a cohesive discussion network.
+
+# Integrated Discussion
+
+The three analyses describe different layers of the same sampled discourse. RQ1 shows genuine topical and stylistic variety, but the weak separation and uneven cluster sizes caution against describing seven natural topics. Three broader substantive themes are more stable than the full seven-cluster partition.
+
+RQ2 indicates that engagement is not distributed identically across those lexical patterns, yet the small epsilon-squared shows that cluster membership explains little rank variation. Extreme posts, zero-heavy outcomes and the very small Cluster 5 all matter to interpretation. Statistical significance should not be confused with a large practical difference.
+
+RQ3 adds a structural distinction: topical variety and post-level engagement did not translate into one interconnected sampled conversation. The reply graph consists almost entirely of pairs and tiny components. A highly engaged post or higher-engagement lexical cluster is not necessarily associated with a user occupying a bridging network position; indeed, no such brokerage position exists in this edge sample.
+
+Together, the results portray a heterogeneous but dispersed sample of AI-related Bluesky activity: varied language and content, modest engagement differences, and fragmented reply relationships. These conclusions apply to the collected posts, not Bluesky as a whole.
+
+# Limitations
+
+1. **Search-term sampling.** Four keywords cannot capture all AI-related discussion, and the results are not platform-wide estimates.
+2. **Variable pilot relevance.** Manual relevance ranged from `r min(pilot_results$relevance_rate)`% to `r max(pilot_results$relevance_rate)`%, indicating keyword-dependent noise and coverage.
+3. **Repeated and syndicated content.** Exact duplicates were controlled during clustering and restored carefully for post-level engagement, but near-duplicate news and templates still influenced smaller clusters.
+4. **Weak cluster separation.** Only about `r formatC(100*between_total,digits=2,format="f")`% of TF-IDF variation lay between clusters; the seven groups are descriptive, not natural boundaries.
+5. **Representation choices.** Unigram TF-IDF and primarily English stopwords may underrepresent phrases, multilingual meaning and contextual nuance.
+6. **Engagement distribution.** Engagement was zero-heavy, right-skewed and influenced by extreme observations.
+7. **Small Cluster 5.** Its median of 3 is based on only 13 posts and should not be generalised into a broad claim about AI-art engagement.
+8. **Incomplete reply graph.** The network contains only reply relationships observable from collected posts, not followers, friendships, endorsements or the complete Bluesky graph.
+9. **Edge-list scope.** Authors without an observed reply relationship are absent from the 240-user network.
+10. **Unmapped targets.** The `r fmt_count(unmapped_network_users)` unmapped users were target-only authors of parent posts outside the search sample; they were retained but not identified speculatively.
+11. **Observational design.** All findings are descriptive associations and support no causal conclusion.
+
+# Conclusion
+
+AI-related posts in this Bluesky sample formed seven reproducible but weakly separated lexical clusters. Inspection supported roughly three broader substantive themes, while smaller clusters often reflected syndication, employment templates, language patterns or event-specific reporting.
+
+Engagement differed significantly across the seven clusters, H(6) = `r formatC(primary_test$statistic_h,digits=2,format="f")`, p < .001, but the effect was small (epsilon-squared = `r formatC(primary_test$effect_size_value,digits=3,format="f")`) and remained similar after excluding repeated-text posts. The observed reply network was even more qualified: `r fmt_count(n_network_users)` connected users separated into `r fmt_count(n_weak_components)` weak components, with only `r largest_component` users in the largest.
+
+The coherent finding is therefore one of **diversity without cohesion**: the sample contains varied AI discourse and modest engagement differences, but reply interactions remain dispersed across many small conversations.
+
+# References
+
+No external literature is cited in this report. Data definitions, transformations and analytical procedures are documented in the repository README, scripts 01–05 and generated outputs. Package implementations used by the workflow include `bskyr`, `dplyr`, `ggplot2`, `igraph`, `knitr` and `rmarkdown`. No publication details or URLs have been added without repository support.
+
+# Reproducibility Appendix
+
+The report reads completed outputs rather than rerunning data collection, clustering, hypothesis testing or network analysis. The pipeline is implemented in numerical order:
+
+```text
+scripts/01_data_collection.R
+scripts/02_text_analysis.R
+scripts/03_clustering.R
+scripts/04_hypothesis_testing.R
+scripts/05_network_analysis.R
+```
+
+The stored canonical raw dataset permits reproduction without new API requests. Randomised clustering and network layout use fixed seeds, while RQ2 tests are deterministic.
+
+<details class="session-details">
+<summary>View R session information</summary>
+
+```{r session-info}
+sessionInfo()
+```
+
+
+</details>
