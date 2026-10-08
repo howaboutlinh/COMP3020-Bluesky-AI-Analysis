@@ -4,133 +4,134 @@
 # 04_hypothesis_testing.R
 # =====================================================
 
-# Research Question 2:
-# Does user engagement differ across
-# AI discussion topics?
-
 
 # 1. LOAD DATA ---------------------------------------
 
-# Load posts and topic clusters from Script 03.
+# Load posts with cluster labels from Script 03.
 posts = read.csv(
   "data/processed/bluesky_clustered_posts.csv"
 )
 
-# Check the dataset.
+# Check the data.
 dim(posts)
 names(posts)
-head(posts)
 
 
-# 2. CALCULATE ENGAGEMENT ----------------------------
+# 2. PREPARE ENGAGEMENT DATA -------------------------
 
-# Total engagement is the sum of four interactions:
-# likes, reposts, replies and quotes.
+# Check required columns.
+stopifnot(
+  all(c(
+    "cluster",
+    "like_count",
+    "repost_count",
+    "reply_count"
+  ) %in% names(posts))
+)
 
+# Remove posts with missing engagement values.
+posts = posts[
+  complete.cases(
+    posts[, c("like_count", "repost_count", "reply_count")]
+  ),
+]
+
+# Calculate total engagement.
 posts$engagement = posts$like_count +
   posts$repost_count +
-  posts$reply_count +
-  posts$quote_count
+  posts$reply_count
 
-# Examine engagement distribution.
+# Check engagement values.
 summary(posts$engagement)
 
-# Count posts with zero engagement.
-sum(posts$engagement == 0, na.rm = TRUE)
 
-# View the engagement distribution.
+# 3. SELECT TWO GROUPS -------------------------------
+
+# Cluster 1: Broad AI and ChatGPT discussions.
+cluster1 = posts$engagement[
+  posts$cluster == 1
+]
+
+# Cluster 5: AI Art / Stable Diffusion (verify with current cluster terms).
+cluster5 = posts$engagement[
+  posts$cluster == 5
+]
+
+# Check sample sizes.
+length(cluster1)
+length(cluster5)
+
+
+# 4. DIFFERENCE IN MEANS -----------------------------
+
+# Calculate mean engagement for each group.
+mean(cluster1)
+mean(cluster5)
+
+# Calculate observed difference.
+meanDiff = mean(cluster5) - mean(cluster1)
+
+print(meanDiff)
+
+
+# 5. SHUFFLING THE OBSERVATIONS ----------------------
+
+# Shuffle two samples without changing their sizes.
+shuffleMean = function(cluster1, cluster5) {
+  
+  combined = c(cluster1, cluster5)
+  
+  chosen = sample(
+    length(combined),
+    size = length(cluster1),
+    replace = FALSE
+  )
+  
+  shuffledBefore = combined[chosen]
+  shuffledAfter = combined[-chosen]
+  
+  mean(shuffledAfter) - mean(shuffledBefore)
+}
+
+
+# 6. RANDOMISATION DISTRIBUTION ----------------------
+
+# Generate the randomisation distribution.
+set.seed(123)
+
+randDist = replicate(
+  1000,
+  shuffleMean(cluster1, cluster5)
+)
+
+# Plot the randomisation distribution.
 hist(
-  posts$engagement,
-  main = "Distribution of Post Engagement",
-  xlab = "Total Engagement"
+  randDist,
+  col = "#93C5FD",
+  main = "Randomisation Distribution",
+  xlab = "Difference in Mean Engagement"
 )
 
-
-# 3. COMPARE TOPIC CLUSTERS --------------------------
-
-# Treat cluster numbers as categories.
-posts$cluster = as.factor(posts$cluster)
-
-# Number of posts in each cluster.
-table(posts$cluster)
-
-# Median engagement for each cluster.
-aggregate(
-  engagement ~ cluster,
-  data = posts,
-  FUN = median
+# Mark the observed difference.
+abline(
+  v = meanDiff,
+  col = "#2563EB",
+  lwd = 2
 )
 
-# Mean engagement for each cluster.
-aggregate(
-  engagement ~ cluster,
-  data = posts,
-  FUN = mean
+# Calculate the two-sided p-value.
+pVal = mean(
+  abs(randDist) >= abs(meanDiff)
 )
 
-
-# 4. HYPOTHESIS TEST ---------------------------------
-
-# H0: Engagement distributions are the same
-#     across all topic clusters.
-#
-# H1: At least one cluster has a different
-#     engagement distribution.
-#
-# Kruskal-Wallis compares engagement ranks
-# across more than two independent groups.
-
-test = kruskal.test(
-  engagement ~ cluster,
-  data = posts
-)
-
-# Display the test result.
-test
+print(pVal)
 
 
-# 5. EFFECT SIZE -------------------------------------
+# 7. T-TEST ------------------------------------------
 
-# Epsilon-squared estimates the strength
-# of the difference between topic clusters.
+# Perform the two-sample t-test.
+tt = t.test(cluster1, cluster5)
 
-# H = Kruskal-Wallis test statistic.
-H = as.numeric(test$statistic)
-
-# n = number of posts used in the test.
-n = sum(complete.cases(
-  posts[, c("engagement", "cluster")]
-))
-
-# k = number of topic clusters.
-k = nlevels(posts$cluster)
-
-# Calculate epsilon-squared.
-epsilon.squared = (H - k + 1) / (n - k)
-
-epsilon.squared
-
-
-# 6. VISUALISE ENGAGEMENT ----------------------------
-
-# Use log(1 + engagement) to make the
-# skewed distribution easier to visualise.
-# The statistical test uses original values.
-
-boxplot(
-  log1p(engagement) ~ cluster,
-  data = posts,
-  main = "Engagement Across AI Topic Clusters",
-  xlab = "Topic Cluster",
-  ylab = "Log(1 + Engagement)"
-)
-
-
-# 7. SAVE RESULTS ------------------------------------
-
-# Save engagement data with topic clusters.
-write.csv(
-  posts,
-  "data/processed/bluesky_engagement_analysis.csv",
-  row.names = FALSE
-)
+tt
+tt$statistic
+tt$p.value

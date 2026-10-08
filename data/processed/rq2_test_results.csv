@@ -1,3 +1,0 @@
-"analysis","outcome","test","n","groups","statistic_h","degrees_of_freedom","p_value","effect_size","effect_size_value","alpha","significant"
-"Primary: all topic-assignable posts","total_engagement","Kruskal-Wallis rank sum test",907,7,35.1200385790435,6,4.08475760923456e-06,"epsilon_squared_H",0.0323555984211594,0.05,TRUE
-"Sensitivity: canonical unique-text clustered posts","total_engagement","Kruskal-Wallis rank sum test",855,7,32.4342978014335,6,1.34690452340949e-05,"epsilon_squared_H",0.0311725209922565,0.05,TRUE

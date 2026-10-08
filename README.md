@@ -1,241 +1,110 @@
 # AI Discussions on Bluesky
 
-**COMP3020 Social Web Analytics | Group Project | Western Sydney University**
+**COMP3020 Social Web Analytics | Group Project | Western Sydney University | 2026**
 
 ## Overview
 
-This project investigates AI-related discussions on Bluesky using text mining, topic clustering, statistical analysis, and social network analysis.
-
-Public Bluesky posts related to four AI search terms are analysed:
-
-- Artificial Intelligence
-- Generative AI
-- ChatGPT
-- Machine Learning
-
-The project examines the major themes present in AI-related discussions, differences in user engagement across discussion topics, and the structure of user interactions through replies.
+This project analyses public Bluesky posts about artificial intelligence (AI). It combines text analysis, clustering, hypothesis testing and network analysis in R, following the methods taught in the COMP3020 labs (Modules 4–10).
 
 ## Research Questions
 
-1. **Topic Analysis:** What are the main topics in AI-related discussions on Bluesky?
-2. **User Engagement:** Does user engagement differ across AI discussion topics?
-3. **Network Analysis:** How are users connected through AI-related discussions, and which users occupy central positions?
+1. **RQ1 – Topics:** What are the main topics in AI-related posts on Bluesky? *(text analysis and k-means clustering)*
+2. **RQ2 – Engagement:** Does user engagement differ between these topics? *(randomisation test, t-test and ANOVA)*
+3. **RQ3 – Network:** How are the authors of AI posts connected through follow relationships, and which accounts are central? *(directed follow network and centrality)*
 
-## Methodology
+## Data
 
-### 1. Data Collection
+Data were collected with the `atrrr` package on 8–9 October 2026 (AEDT).
 
-Public Bluesky posts were collected using the `bskyr` package and four AI-related search terms:
+| Item | Value |
+|---|---|
+| Search terms | artificial intelligence, machine learning, ChatGPT, generative AI |
+| Posts collected | 1,189 (1,168 unique) |
+| Distinct authors | 887 |
+| Time period of posts | 7 Oct 2026 15:24 UTC – 8 Oct 2026 16:11 UTC |
+| Posts used after cleaning | 1,031 |
+| Follow relationships collected | 118,988 |
 
-- Artificial Intelligence
-- Generative AI
-- ChatGPT
-- Machine Learning
-
-The original API results are preserved in the raw dataset before downstream cleaning and analysis.
-
-A pilot relevance assessment was also conducted to evaluate the suitability of the selected search terms.
-
-### 2. Text Preprocessing
-
-Post text is prepared for analysis through a reproducible preprocessing pipeline.
-
-The pipeline includes:
-
-- removal of URLs and mentions
-- contraction handling
-- punctuation and number removal
-- tokenisation
-- stopword removal
-- exact-text duplicate handling
-- document-frequency filtering
-- TF-IDF transformation
-- L2 normalisation
-
-Posts without usable terms after preprocessing are retained for traceability but excluded from clustering.
-
-### 3. Topic Clustering
-
-K-means clustering is applied to the normalised TF-IDF representation of the processed Bluesky posts.
-
-Candidate values of `k` are evaluated using within-cluster sum of squares and cluster interpretability. The final clustering solution is used to investigate the major lexical themes within AI-related discussion.
-
-The clustering results are interpreted as descriptive lexical groupings rather than naturally occurring or mutually exclusive topic boundaries.
-
-### 4. User Engagement Analysis
-
-Engagement analysis will compare engagement metrics across the discussion topics identified in the clustering analysis.
-
-The corresponding analysis is implemented in:
-
-`04_hypothesis_testing.R`
-
-### 5. Social Network Analysis
-
-Reply interactions are represented as directed user-to-user edges. Network analysis will examine the structure of these interactions and identify users occupying central positions.
-
-The corresponding analysis is implemented in:
-
-`05_network_analysis.R`
-
-## Dataset
-
-The canonical raw dataset is stored at:
-
-```text
-data/raw/bluesky_posts_raw.rds
-```
-
-It contains **976 collected Bluesky posts**.
-
-Processed datasets used by the analysis are stored in:
-
-```text
-data/processed/
-```
-
-The raw dataset is included so that the analytical pipeline can be reproduced without recollecting posts from the Bluesky API.
+- **Posts:** `search_post()`, up to about 300 latest posts per search term.
+- **Follows:** `get_follows()` for every post author, up to about 300 follows each.
+- In the network, a **node** is an author of an AI post and an **edge A → B** means author A follows author B.
 
 ## Repository Structure
 
 ```text
 COMP3020-Bluesky-AI-Analysis/
 ├── data/
-│   ├── raw/            # Original collected Bluesky data
-│   ├── processed/      # Processed datasets used for analysis
-│   └── pilot/          # Pilot keyword relevance datasets
-│
+│   ├── raw/
+│   │   ├── bluesky_posts.csv            # collected posts (Script 01)
+│   │   └── bluesky_follow_edges.csv     # follow relationships (Script 01)
+│   └── processed/
+│       ├── bluesky_text_posts.csv       # cleaned posts (Script 02)
+│       ├── bluesky_tfidf.rds            # TF-IDF matrix (Script 02)
+│       ├── bluesky_term_frequencies.csv # word frequencies (Script 02)
+│       ├── clustering_elbow_values.csv  # elbow method values (Script 03)
+│       ├── clustering_top_terms.csv     # top terms per cluster (Script 03)
+│       └── bluesky_clustered_posts.csv  # posts with cluster labels (Script 03)
 ├── scripts/
-│   ├── 01_data_collection.R
-│   ├── 02_text_analysis.R
-│   ├── 03_clustering.R
-│   ├── 04_hypothesis_testing.R
-│   ├── 05_network_analysis.R
-│   └── pilot_relevance_test.R
-│
-├── figures/            # Generated analysis figures
-├── report/             # Analytical report
-├── poster/             # Final project poster
-├── archive/            # Earlier datasets retained for reference
-├── .gitignore
+│   ├── 01_data_collection.R             # collect posts and follows
+│   ├── 02_text_analysis.R               # cleaning, word frequency, TF-IDF
+│   ├── 03_clustering.R                  # RQ1: cosine distance, MDS, k-means
+│   ├── 04_hypothesis_testing.R          # RQ2: randomisation test, t-test, ANOVA
+│   └── 05_network_analysis.R            # RQ3: follow network and centrality
+├── figures/                             # plots used in the poster
+├── report/
+│   ├── analytical_report.Rmd            # report source
+│   └── analytical_report.pdf            # submitted report
 └── README.md
 ```
 
-## Reproducing the Analysis
+## Requirements
 
-### Requirements
-
-The project is implemented in **R**.
-
-The required R packages depend on the individual analysis scripts. Current core dependencies include:
+R (version 4.x) with the following packages:
 
 ```r
-dplyr
-ggplot2
-bskyr
+install.packages(c("atrrr", "tm", "SnowballC", "wordcloud", "igraph", "rmarkdown"))
 ```
 
-Additional package dependencies used by the engagement and network analyses will be documented after those components are completed.
+## How to Reproduce the Analysis
 
-### Running the Project
+Open R with the repository root as the working directory.
 
-Clone the repository and open R with the repository root as the working directory.
-
-Run the analysis scripts in numerical order:
+**To reproduce the reported results**, run Scripts 02 → 05 in order. They use the saved data in `data/raw/` and do not contact the Bluesky API:
 
 ```text
-scripts/01_data_collection.R
 scripts/02_text_analysis.R
 scripts/03_clustering.R
 scripts/04_hypothesis_testing.R
 scripts/05_network_analysis.R
 ```
 
-The scripts use relative paths from the repository root and do not require machine-specific working-directory paths.
+To regenerate the report, open `report/analytical_report.Rmd` and click **Knit**. The report re-runs the analysis from `data/raw/`.
 
-### Reproducing from the Existing Raw Dataset
+**Script 01 collects a new sample.** It needs a Bluesky account and an app password, set as environment variables before running:
 
-Because the original Bluesky data is included in:
-
-```text
-data/raw/bluesky_posts_raw.rds
+```r
+Sys.setenv(BLUESKY_HANDLE = "your-handle.bsky.social",
+           BLUESKY_APP_PASSWORD = "xxxx-xxxx-xxxx-xxxx")
 ```
 
-reproducing the analytical results does **not** require recollecting data from Bluesky.
+Bluesky content changes over time, so running Script 01 again produces a different dataset. It also overwrites the files in `data/raw/`. Credentials are not stored in this repository.
 
-When the raw dataset already exists, the data collection pipeline loads the stored dataset rather than making new API requests.
+## Main Findings
 
-The subsequent analysis can therefore be reproduced from the repository data.
+- **RQ1:** Seven topic clusters were found. The two largest are general AI news and link sharing (589 posts) and personal opinions about using AI (261 posts). Smaller clusters include AI research and books, Google Gemini, and automated content (job-advert bots, market-report spam, a repeated poll headline).
+- **RQ2:** Opinion posts received more engagement than news posts (mean 4.30 vs 2.43; randomisation test p = 0.032, t-test p = 0.046). Across all seven clusters the difference was not significant (ANOVA p = 0.119). Automated content received almost no engagement.
+- **RQ3:** The follow network is sparse. 340 of 803 authors have at least one tie, with 480 edges and one large component of 294 authors. News organisations (AP, Bloomberg, EFF, The Economist) have the highest in-degree, while individual commentators rank highest on PageRank and betweenness.
 
-### Recollecting Data from Bluesky
+## Limitations
 
-Bluesky credentials are required only when collecting a new raw dataset.
+- Keyword search over about 25 hours, sorted by latest posts. Results describe this sample only.
+- Non-English text is mostly lost when it is converted to ASCII.
+- The elbow plot has no clear elbow, so k = 7 was chosen for interpretability.
+- Engagement is very skewed (median 0).
+- At most about 300 follows per author were collected, and a follow does not show actual interaction.
 
-The collection script expects the following environment variables:
-
-```text
-BLUESKY_HANDLE
-BLUESKY_APP_PASSWORD
-```
-
-Credentials must be stored locally and are **not included in this repository**.
-
-Because Bluesky content changes over time, recollecting the data may produce a dataset different from the one used for the submitted analysis. The included raw dataset should therefore be used when reproducing the reported results.
-
-## Analysis Outputs
-
-Generated processed datasets are written to:
-
-```text
-data/processed/
-```
-
-Generated figures are written to:
-
-```text
-figures/
-```
-
-For the topic-analysis pipeline, the main outputs include the processed text representation, clustering assignments, cluster summaries, representative posts, and clustering visualisations.
-
-The analytical report is maintained in:
-
-```text
-report/
-```
-
-The final project poster is maintained in:
-
-```text
-poster/
-```
-
-## Reproducibility Notes
-
-- Raw API data is preserved separately from processed data.
-- Analysis scripts use relative repository paths.
-- Randomised clustering uses a fixed random seed.
-- Credentials and local environment files are excluded from version control.
-- Generated analytical results can be recreated from the included raw dataset.
-- Earlier datasets retained for historical reference are stored in `archive/` and are not used as the canonical analysis dataset.
-
-## Project Status
-
-| Component | Script | Status |
-|---|---|---|
-| Data collection and preparation | `01_data_collection.R` | Complete |
-| Text preprocessing and TF-IDF | `02_text_analysis.R` | Complete |
-| Topic clustering | `03_clustering.R` | Complete |
-| User engagement analysis | `04_hypothesis_testing.R` | In progress |
-| Social network analysis | `05_network_analysis.R` | In progress |
-| Analytical report | `report/` | In progress |
-| Poster | `poster/` | In progress |
-
-## Team Members
+## Team
 
 - Kimmy Le
 - Phoebe Le
 - Quinn Nguyen
-
-**Western Sydney University**  
-COMP3020 Social Web Analytics | 2026

@@ -4,119 +4,290 @@
 # 03_clustering.R
 # =====================================================
 
-# Research Question 1:
-# What are the main topics in AI-related
-# discussions on Bluesky?
 
 # 1. LOAD DATA ---------------------------------------
 
-# Load the TF-IDF matrix from Script 02.
-tfidf = readRDS("data/processed/bluesky_tfidf.rds")
+# Load TF-IDF matrix from Script 02.
+posts.matrix = readRDS(
+  "data/processed/bluesky_tfidf.rds"
+)
 
-# Load the matching posts.
+# Load matching posts.
 posts = read.csv(
   "data/processed/bluesky_text_analysis_posts.csv"
 )
 
-# Check the data.
-dim(tfidf)
+# Check data dimensions.
+dim(posts.matrix)
 nrow(posts)
 
+# Ensure the documents match.
+stopifnot(nrow(posts.matrix) == nrow(posts))
 
-# 2. ELBOW METHOD ------------------------------------
 
-# The Elbow Method helps us choose the
-# number of clusters using within-cluster
-# sum of squares (WSS).
+# 2. REMOVE EMPTY DOCUMENTS --------------------------
 
-set.seed(3020)
+# Identify documents with zero TF-IDF weights.
+empties = rowSums(posts.matrix^2) == 0
 
-k.values = 2:10
-wss = numeric(length(k.values))
+sum(empties)
 
-for (i in 1:length(k.values)) {
-  result = kmeans(tfidf, centers = k.values[i],
-                  nstart = 10)
-  wss[i] = result$tot.withinss
-}
+# Remove empty documents from both datasets.
+posts.matrix = posts.matrix[!empties, , drop = FALSE]
+posts = posts[!empties, , drop = FALSE]
 
-# Plot the Elbow Method.
-plot(
-  k.values, wss,
-  type = "b",
-  xlab = "Number of Clusters (k)",
-  ylab = "Within-Cluster Sum of Squares",
-  main = "Elbow Method"
+# Check final dimensions.
+dim(posts.matrix)
+
+
+# 3. NORMALISE DOCUMENT VECTORS ----------------------
+
+# Normalise TF-IDF vectors to unit length.
+norm.posts.matrix = diag(
+  1 / sqrt(rowSums(posts.matrix^2))
+) %*% posts.matrix
+
+# Check normalised vector lengths.
+head(sqrt(rowSums(norm.posts.matrix^2)))
+
+
+# 4. CALCULATE COSINE DISTANCE -----------------------
+
+# Calculate cosine distance using normalised vectors.
+D = dist(
+  norm.posts.matrix,
+  method = "euclidean"
+)^2 / 2
+
+# Check distance matrix dimensions.
+dim(as.matrix(D))
+
+
+# 5. MULTIDIMENSIONAL SCALING ------------------------
+
+# Represent documents using 100 MDS dimensions.
+N = nrow(posts.matrix)
+
+mds.posts.matrix = cmdscale(
+  D,
+  k = min(100, N - 2)
 )
 
-
-# 3. K-MEANS CLUSTERING ------------------------------
-
-# Use seven clusters for the analysis.
-# The elbow is not very clear, so k = 7
-# is an exploratory choice.
-
-set.seed(3020)
-
-model = kmeans(
-  tfidf,
-  centers = 7,
-  nstart = 10
-)
-
-# Number of posts in each cluster.
-table(model$cluster)
-
-# Proportion of variation explained.
-model$betweenss / model$totss
+dim(mds.posts.matrix)
 
 
-# 4. IDENTIFY CLUSTER TOPICS -------------------------
+# 6. ELBOW METHOD ------------------------------------
 
-# Find the most important terms in each cluster.
-# Use average TF-IDF scores to describe topics.
+# Compare within-cluster sum of squares for k = 1 to 15.
+n = min(15, N - 1)
 
-for (i in 1:7) {
+SSW = rep(0, n)
+
+for (a in 1:n) {
   
-  cluster.posts = tfidf[model$cluster == i, ,
-                        drop = FALSE]
+  set.seed(123)
   
-  scores = colMeans(cluster.posts)
-  
-  top.words = head(
-    sort(scores, decreasing = TRUE), 10
+  K = kmeans(
+    mds.posts.matrix,
+    a,
+    nstart = 20,
+    iter.max = 100
   )
   
-  print(i)
-  print(top.words)
+  SSW[a] = K$tot.withinss
+}
+
+# Display elbow results.
+round(SSW, 3)
+
+# Plot the elbow curve.
+
+plot(
+  1:n,
+  SSW,
+  type = "b",
+  col = "#2563EB",
+  pch = 19,
+  lwd = 2,
+  main = "Elbow Method for AI Discussion Clusters",
+  xlab = "Number of Clusters",
+  ylab = "Within-Cluster Sum of Squares"
+)
+
+
+# 7. K-MEANS CLUSTERING ------------------------------
+
+# Select seven clusters based on comparison.
+number.of.clusters = 7
+
+set.seed(123)
+
+K = kmeans(
+  mds.posts.matrix,
+  number.of.clusters,
+  nstart = 20,
+  iter.max = 100
+)
+
+# Inspect clustering results.
+K$size
+K$tot.withinss
+K$betweenss
+K$totss
+
+# Calculate proportion of between-cluster variation.
+K$betweenss / K$totss
+
+
+# 8. VISUALISE CLUSTERS ------------------------------
+
+# Project documents into two MDS dimensions.
+mds2.posts.matrix = cmdscale(
+  D,
+  k = 2
+)
+
+# Plot the clusters.
+
+# Blue palette for seven clusters.
+cluster.colors = c(
+  "#082F49",
+  "#0369A1",
+  "#0284C7",
+  "#0EA5E9",
+  "#38BDF8",
+  "#60A5FA",
+  "#93C5FD"
+)
+
+plot(
+  mds2.posts.matrix,
+  col = cluster.colors[K$cluster],
+  pch = 19,
+  main = "AI Discussion Clusters on Bluesky",
+  xlab = "MDS Dimension 1",
+  ylab = "MDS Dimension 2"
+)
+
+legend(
+  "topright",
+  legend = paste("Cluster", 1:number.of.clusters),
+  col = cluster.colors,
+  pch = 19
+)
+
+
+
+# 9. CLUSTER SIZES -----------------------------------
+
+# Add cluster labels to posts.
+posts$cluster = K$cluster
+
+# Count posts in each cluster.
+table(posts$cluster)
+
+# Calculate cluster percentages.
+round(
+  prop.table(table(posts$cluster)) * 100,
+  2
+)
+
+# Visualise cluster sizes.
+
+barplot(
+  table(posts$cluster),
+  col = cluster.colors,
+  border = NA,
+  main = "Number of Posts in Each Cluster",
+  xlab = "Cluster",
+  ylab = "Number of Posts"
+)
+
+
+# 10. IDENTIFY CLUSTER TERMS -------------------------
+
+# Identify the top ten TF-IDF terms per cluster.
+for (a in 1:number.of.clusters) {
+  
+  print(paste("Cluster", a))
+  
+  # Select posts in the cluster.
+  cluster.matrix = posts.matrix[
+    K$cluster == a, ,
+    drop = FALSE
+  ]
+  
+  # Calculate average TF-IDF weights.
+  w = colMeans(cluster.matrix)
+  
+  # Rank terms by weight.
+  o = order(w, decreasing = TRUE)[1:10]
+  
+  # Display top terms and weights.
+  print(colnames(posts.matrix)[o])
+  print(round(w[o], 3))
 }
 
 
-# 5. SAVE CLUSTER RESULTS ----------------------------
+# 11A. INSPECT EXAMPLE POSTS --------------------------
 
-# Add cluster membership to the posts.
-posts$cluster = model$cluster
+# Examine five example posts per cluster.
+for (a in 1:number.of.clusters) {
+  
+  print(paste("Cluster", a))
+  
+  cluster.posts = posts$text[
+    posts$cluster == a
+  ]
+  
+  print(head(cluster.posts, 5))
+}
 
-# Save the posts and their assigned clusters.
+
+# 11B. CLUSTER SIMILARITY ----------------------------
+
+# Calculate the average TF-IDF profile of each cluster.
+cluster.profiles = matrix(
+  0,
+  nrow = number.of.clusters,
+  ncol = ncol(posts.matrix)
+)
+
+for (a in 1:number.of.clusters) {
+  
+  cluster.profiles[a, ] = colMeans(
+    posts.matrix[K$cluster == a, , drop = FALSE]
+  )
+}
+
+# Normalise the cluster profiles.
+cluster.profiles = cluster.profiles /
+  sqrt(rowSums(cluster.profiles^2))
+
+# Calculate cosine similarity between clusters.
+cluster.similarity = cluster.profiles %*%
+  t(cluster.profiles)
+
+rownames(cluster.similarity) = paste(
+  "Cluster", 1:number.of.clusters
+)
+
+colnames(cluster.similarity) = paste(
+  "Cluster", 1:number.of.clusters
+)
+
+round(cluster.similarity, 3)
+# 12. SAVE RESULTS -----------------------------------
+
+# Save posts with cluster assignments.
 write.csv(
   posts,
   "data/processed/bluesky_clustered_posts.csv",
   row.names = FALSE
 )
 
-# Save the K-means model.
+# Save K-means results.
 saveRDS(
-  model,
-  "data/processed/bluesky_kmeans_model.rds"
-)
-
-
-# 6. VISUALISE CLUSTER SIZES -------------------------
-
-# Compare the number of posts in each cluster.
-barplot(
-  table(posts$cluster),
-  main = "Number of Posts by Topic Cluster",
-  xlab = "Cluster",
-  ylab = "Number of Posts"
+  K,
+  "data/processed/bluesky_kmeans.rds"
 )

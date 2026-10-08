@@ -126,3 +126,7 @@ saveRDS(
   posts,
   "data/raw/bluesky_posts_raw.rds"
 )
+
+# Save the flat post table required by Script 02.
+# Do not re-run this script for report generation: it makes live API requests.
+write.csv(posts, "data/processed/bluesky_text_posts.csv", row.names = FALSE)

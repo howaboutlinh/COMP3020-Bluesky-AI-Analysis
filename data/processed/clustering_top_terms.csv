@@ -1,85 +1,71 @@
-"cluster","cluster_label","term_rank","term","average_tfidf"
-1,"Cluster 1",1,"ai",0.0516097020422475
-1,"Cluster 1",2,"generative",0.0479754446182457
-1,"Cluster 1",3,"chatgpt",0.0285877457760958
-1,"Cluster 1",4,"use",0.0212061829342889
-1,"Cluster 1",5,"people",0.0155428300115329
-1,"Cluster 1",6,"like",0.0143059799273155
-1,"Cluster 1",7,"new",0.013622307764777
-1,"Cluster 1",8,"using",0.0126031181434099
-1,"Cluster 1",9,"one",0.0124163948547671
-1,"Cluster 1",10,"used",0.0111914669130748
-1,"Cluster 1",11,"news",0.0109434779717397
-1,"Cluster 1",12,"make",0.0106862244786616
-2,"Cluster 2",1,"example",0.301903574051062
-2,"Cluster 2",2,"activity",0.294475879046132
-2,"Cluster 2",3,"leaked",0.292101378166659
-2,"Cluster 2",4,"latest",0.289074772764357
-2,"Cluster 2",5,"users",0.277961959616619
-2,"Cluster 2",6,"guardian",0.272173714116382
-2,"Cluster 2",7,"images",0.266118380618661
-2,"Cluster 2",8,"rogue",0.231096962702979
-2,"Cluster 2",9,"says",0.231096962702979
-2,"Cluster 2",10,"agents",0.228099781240483
-2,"Cluster 2",11,"openai",0.19512478948912
-2,"Cluster 2",12,"chatgpt",0.139960112938929
-3,"Cluster 3",1,"engineer",0.129827080232755
-3,"Cluster 3",2,"remote",0.12946282171364
-3,"Cluster 3",3,"remotejobs",0.120329595542573
-3,"Cluster 3",4,"remotework",0.120329595542573
-3,"Cluster 3",5,"workfromhome",0.120329595542573
-3,"Cluster 3",6,"apply",0.116654135653745
-3,"Cluster 3",7,"hiring",0.114975658648298
-3,"Cluster 3",8,"alert",0.109727626899607
-3,"Cluster 3",9,"jobopportunity",0.109727626899607
-3,"Cluster 3",10,"category",0.107910724495736
-3,"Cluster 3",11,"location",0.107910724495736
-3,"Cluster 3",12,"position",0.103109352010766
-4,"Cluster 4",1,"learning",0.127255186414593
-4,"Cluster 4",2,"machine",0.121391207633769
-4,"Cluster 4",3,"data",0.0404842228548964
-4,"Cluster 4",4,"ai",0.0281762509290468
-4,"Cluster 4",5,"models",0.0247711270792861
-4,"Cluster 4",6,"research",0.0220128492336264
-4,"Cluster 4",7,"like",0.0215333467029518
-4,"Cluster 4",8,"optimization",0.0180291545959543
-4,"Cluster 4",9,"using",0.0178804006963826
-4,"Cluster 4",10,"new",0.0175875077575368
-4,"Cluster 4",11,"paper",0.0155343759883382
-4,"Cluster 4",12,"quantum",0.0148585483242655
-5,"Cluster 5",1,"aiイラスト",0.686417008613264
-5,"Cluster 5",2,"aiart",0.400394717468912
-5,"Cluster 5",3,"chatgpt",0.272211607705214
-5,"Cluster 5",4,"stablediffusion",0.155898957767617
-5,"Cluster 5",5,"guardian",0.0413150901407556
-5,"Cluster 5",6,"watch",0.0277996894311111
-5,"Cluster 5",7,"spent",0.026824284308864
-5,"Cluster 5",8,"wrong",0.0252852092154824
-5,"Cluster 5",9,"instead",0.0246550797984608
-5,"Cluster 5",10,"real",0.0189795032912344
-5,"Cluster 5",11,"absolutely",0
-5,"Cluster 5",12,"academic",0
-6,"Cluster 6",1,"intelligence",0.182411763669875
-6,"Cluster 6",2,"artificial",0.154813862987651
-6,"Cluster 6",3,"super",0.0825502769912258
-6,"Cluster 6",4,"trump",0.0438047325953975
-6,"Cluster 6",5,"like",0.0215961163172606
-6,"Cluster 6",6,"ai",0.0203556974019256
-6,"Cluster 6",7,"human",0.0200524378176435
-6,"Cluster 6",8,"china",0.0194274205321088
-6,"Cluster 6",9,"president",0.0189670632835821
-6,"Cluster 6",10,"call",0.0182026675828037
-6,"Cluster 6",11,"news",0.017091063657899
-6,"Cluster 6",12,"called",0.0164920651299505
-7,"Cluster 7",1,"openai",0.208394153925283
-7,"Cluster 7",2,"websites",0.122723430185167
-7,"Cluster 7",3,"chatgpt",0.122357557370351
-7,"Cluster 7",4,"government",0.104023381877875
-7,"Cluster 7",5,"agents",0.103866807331399
-7,"Cluster 7",6,"van",0.0710914726690324
-7,"Cluster 7",7,"accessed",0.0653618325271653
-7,"Cluster 7",8,"online",0.0584747408102315
-7,"Cluster 7",9,"agenten",0.0558255959930556
-7,"Cluster 7",10,"images",0.054674949308725
-7,"Cluster 7",11,"maker",0.0489742025575166
-7,"Cluster 7",12,"gebruikers",0.0453885017072374
+"cluster","term"
+1,"remotejob"
+1,"remotework"
+1,"remot"
+1,"locat"
+1,"alert"
+1,"categori"
+1,"hire"
+1,"jobopportun"
+1,"workfromhom"
+1,"usa"
+2,"model"
+2,"research"
+2,"book"
+2,"sinkan"
+2,"springer"
+2,"natur"
+2,"use"
+2,"predict"
+2,"train"
+2,"cours"
+3,"apnorc"
+3,"fast"
+3,"american"
+3,"poll"
+3,"find"
+3,"develop"
+3,"think"
+3,"new"
+3,"memeorandum"
+3,"permalink"
+4,"gemini"
+4,"claud"
+4,"googl"
+4,"geminiai"
+4,"introduc"
+4,"work"
+4,"agent"
+4,"code"
+4,"user"
+4,"enterpris"
+5,"can"
+5,"use"
+5,"just"
+5,"will"
+5,"peopl"
+5,"like"
+5,"make"
+5,"thing"
+5,"think"
+5,"tool"
+6,"use"
+6,"agent"
+6,"data"
+6,"new"
+6,"que"
+6,"read"
+6,"one"
+6,"openai"
+6,"machinelearn"
+6,"system"
+7,"gpt"
+7,"intellig"
+7,"size"
+7,"growth"
+7,"openai"
+7,"interact"
+7,"roll"
+7,"trend"
+7,"report"
+7,"chart"
