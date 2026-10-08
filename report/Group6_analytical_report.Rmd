@@ -279,7 +279,8 @@ for (a in 1:number.of.clusters) {
 }
 ```
 
-```{r mds-plot, fig.width = 8, fig.height = 5.5}
+```{r mds-plot, fig.width=8, fig.height=5.5, fig.cap="Posts in two MDS dimensions, coloured by cluster."}
+
 mds2.posts.matrix = cmdscale(D, k = 2)
 
 plot(mds2.posts.matrix, col = cluster.colours[posts$cluster], pch = 19, cex = 0.6,
@@ -295,7 +296,7 @@ legend("topleft", legend = paste(1:7, cluster.names), col = cluster.colours,
 * Two large clusters dominate. **Cluster 6** (`r sum(posts$cluster == 6)` posts) is general AI news and link sharing about agents, data, OpenAI and policy. **Cluster 5** (`r sum(posts$cluster == 5)` posts) contains personal opinions about using AI (*can, use, just, people, think, tool*).
 * **Cluster 2** groups research and academic content, including automated new-book listings.
 * Three small clusters are **automated or repeated content**: remote-job bots (1), one AP-NORC poll story posted many times (3) and market-report spam (7). Together with the `r n.nonempty - n.unique` duplicate texts removed during cleaning, this shows that a noticeable part of "AI discussion" on Bluesky is not personal conversation.
-* The 2D MDS plot shows the small clusters as separate groups, while the two large clusters overlap in the centre. The large clusters share common vocabulary, so their boundary is less sharp. The k-means clusters explain only `r round(100 * explained, 1)`% of the total variation, so the themes are useful descriptions rather than strict categories.
+* In the 2D MDS plot, the job-advert bots (Cluster 1) and market-report spam (Cluster 7) form clearly separate groups, while the other clusters overlap near the centre. Two dimensions cannot show all the differences that k-means found in 100 dimensions, and the large clusters share common vocabulary, so their boundary is less sharp. The k-means clusters explain only `r round(100 * explained, 1)`% of the total variation, so the themes are useful descriptions rather than strict categories.
 
 ## Do the clusters simply repeat the search terms?
 
