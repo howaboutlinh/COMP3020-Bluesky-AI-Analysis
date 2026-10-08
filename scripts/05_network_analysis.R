@@ -185,7 +185,7 @@ mean(posts$engagement[connected & !(posts$author_handle %in% followed)])
 
 # 9. LIMITATIONS -------------------------------------
 
-# - Up to about 200 follows were collected per author, so
+# - Up to about 300 follows were collected per author, so
 #   some real edges are missing.
 # - Following is not the same as discussing AI together.
 # - Centrality describes this sample only, not all of Bluesky.
