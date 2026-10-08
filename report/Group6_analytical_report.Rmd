@@ -279,13 +279,15 @@ for (a in 1:number.of.clusters) {
 }
 ```
 
-```{r mds-plot, fig.height=4.5, fig.cap="Posts in two MDS dimensions, coloured by cluster."}
+```{r mds-plot, fig.width = 8, fig.height = 5.5}
 mds2.posts.matrix = cmdscale(D, k = 2)
+
 plot(mds2.posts.matrix, col = cluster.colours[posts$cluster], pch = 19, cex = 0.6,
      main = "AI Discussion Clusters (2D MDS)",
      xlab = "MDS dimension 1", ylab = "MDS dimension 2")
-legend("topright", legend = paste(1:7, cluster.names), col = cluster.colours,
-       pch = 19, cex = 0.6, bty = "n")
+# Legend in the empty top-left corner so it does not cover the posts.
+legend("topleft", legend = paste(1:7, cluster.names), col = cluster.colours,
+       pch = 19, cex = 0.7, bty = "n")
 ```
 
 ## Interpretation
@@ -294,6 +296,22 @@ legend("topright", legend = paste(1:7, cluster.names), col = cluster.colours,
 * **Cluster 2** groups research and academic content, including automated new-book listings.
 * Three small clusters are **automated or repeated content**: remote-job bots (1), one AP-NORC poll story posted many times (3) and market-report spam (7). Together with the `r n.nonempty - n.unique` duplicate texts removed during cleaning, this shows that a noticeable part of "AI discussion" on Bluesky is not personal conversation.
 * The 2D MDS plot shows the small clusters as separate groups, while the two large clusters overlap in the centre. The large clusters share common vocabulary, so their boundary is less sharp. The k-means clusters explain only `r round(100 * explained, 1)`% of the total variation, so the themes are useful descriptions rather than strict categories.
+
+## Do the clusters simply repeat the search terms?
+
+Every post was found by one of four search terms, so a concern is that the clusters only reproduce those terms. A chi-squared test of independence (Module 9) compares the search term of each post with its cluster. Some cells are small, so the p-value is simulated.
+
+* **H0:** cluster membership is independent of the search term
+* **HA:** cluster membership depends on the search term
+
+```{r keyword-cluster}
+keyword.table = table(posts$search_keyword, posts$cluster)
+keyword.table
+set.seed(123)
+chisq.test(keyword.table, simulate.p.value = TRUE, B = 2000)
+```
+
+The test rejects H0 (p < 0.001): topics are related to the search term (for example, the research cluster comes mostly from *machine learning* and *artificial intelligence*). However, the two largest clusters contain posts from all four search terms, so the clusters capture themes that cut across the queries rather than simply repeating them.
 
 # RQ2: Does Engagement Differ Between Topics?
 
@@ -492,6 +510,39 @@ knitr::kable(data.frame(
 * Most connected authors posted in the general news (`r sum(author.cluster == 6)`) or opinion (`r sum(author.cluster == 5)`) clusters. Very few authors from the automated clusters (job bots, market-report spam) are connected to other AI authors.
 * The three measures rank different accounts, so "central" depends on the definition: popular (in-degree), endorsed by important accounts (PageRank) or bridging (betweenness).
 
+## Linking the network to engagement (RQ2 and RQ3)
+
+RQ2 showed that engagement differs between topics. A natural follow-up is whether it also differs with an author's position in the follow network. We apply the same randomisation test (Module 10) to compare posts by **connected authors** (at least one follow tie with another AI author) and **isolated authors**.
+
+* **H0:** mean engagement is equal for connected and isolated authors
+* **HA:** mean engagement differs (two-sided, $\alpha = 0.05$)
+
+```{r network-engagement, fig.height=3.3, fig.cap="Randomisation distribution for connected vs isolated authors; the red line is the observed difference."}
+connected = posts$author_handle %in% V(g)$name
+isolatedEng = posts$engagement[!connected]
+connectedEng = posts$engagement[connected]
+c(n_isolated = length(isolatedEng), n_connected = length(connectedEng))
+c(mean_isolated = mean(isolatedEng), mean_connected = mean(connectedEng))
+
+netDiff = mean(connectedEng) - mean(isolatedEng)
+set.seed(123)
+netDist = replicate(1000, shuffleMean(isolatedEng, connectedEng))
+hist(netDist, col = "lightblue", xlim = range(c(netDist, netDiff)),
+     main = "Randomisation Distribution: Connected vs Isolated Authors",
+     xlab = "Difference in mean engagement (connected - isolated)")
+abline(v = netDiff, col = "red", lwd = 2)
+netP = mean(abs(netDist) > abs(netDiff))
+netP
+
+# Among connected authors: followed by at least one other AI author?
+followed = names(in_degree)[in_degree > 0]
+followedEng = posts$engagement[posts$author_handle %in% followed]
+notFollowedEng = posts$engagement[connected & !(posts$author_handle %in% followed)]
+c(mean_followed = mean(followedEng), mean_not_followed = mean(notFollowedEng))
+```
+
+Posts by connected authors received on average **`r round(mean(connectedEng), 2)`** engagements, compared with **`r round(mean(isolatedEng), 2)`** for isolated authors. None of the 1,000 shuffled differences was as large as the observed difference (p `r ifelse(netP == 0, "< 0.001", paste("=", netP))`), so **we reject H0**. Among connected authors, those followed by at least one other AI author averaged `r round(mean(followedEng), 2)` engagements, compared with `r round(mean(notFollowedEng), 2)` for those who follow others but are not followed. This links the two analyses: **engagement is higher for authors who are embedded in the AI community**. This is an association within the sample, not evidence that follows cause engagement; for example, active and established accounts may both attract followers and receive more likes.
+
 ## Effect of data collection on the network
 
 * About 300 follows were collected per author. For authors who follow many accounts, some edges to other AI authors are missing, so missing follows may underestimate in-degree and distort betweenness.
@@ -504,8 +555,9 @@ knitr::kable(data.frame(
 1. **What is discussed (RQ1):** AI discussion on Bluesky in this sample is dominated by **general AI news and link sharing** (`r round(100 * mean(posts$cluster == 6))`% of posts) and **personal opinions about using AI** (`r round(100 * mean(posts$cluster == 5))`%). A noticeable share is **automated or repeated content** (job bots, market-report spam, the same headline posted many times), which forms its own clusters.
 2. **What gets engagement (RQ2):** opinion posts receive significantly more engagement than news posts (p = `r round(pVal, 3)`). Automated content receives almost no engagement. Across all seven topics, the one-way ANOVA did not find a significant difference.
 3. **Who is connected (RQ3):** the authors form a **sparse** network. Most authors are not connected to each other, but the connected authors mainly form one large component. News outlets and organisations are the most followed accounts, while individual commentators rank highest on PageRank and betweenness. Automated accounts are almost absent from the connected core.
+4. **How engagement and the network connect (RQ2 and RQ3):** posts by authors who are connected to other AI authors receive significantly more engagement than posts by isolated authors (p < 0.001), and authors followed by other AI authors receive the most.
 
-Together, the results suggest that, in this sample, **human opinion posts about AI receive more engagement than shared news**. In the follow network, authors most often follow established organisations, while individual commentators occupy structurally central positions; because the network is built from follows, it shows who pays attention to whom, not where conversations take place. Automated AI-related content makes up part of the volume but receives very little engagement and is rarely connected to other authors.
+Together, the results suggest that, in this sample, **human opinion posts about AI receive more engagement than shared news**. In the follow network, authors most often follow established organisations, while individual commentators occupy structurally central positions; because the network is built from follows, it shows who pays attention to whom, not where conversations take place. Engagement is concentrated among authors who are embedded in the community, while automated AI-related content makes up part of the volume but receives very little engagement and is rarely connected to other authors.
 
 # Limitations
 

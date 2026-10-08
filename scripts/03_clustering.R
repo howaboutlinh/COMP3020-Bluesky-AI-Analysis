@@ -107,19 +107,19 @@ barplot(table(K$cluster), col = 1:number.of.clusters,
 top.terms = NULL
 
 for (a in 1:number.of.clusters) {
-
+  
   # Rows (posts) that belong to cluster a.
   clusterpostsId = which(K$cluster == a)
   clusterposts = posts.matrix[clusterpostsId, , drop = FALSE]
-
+  
   # Average weight of each term in this cluster.
   clusterTermWeight = colMeans(clusterposts)
-
+  
   # The 10 highest-weighted terms.
   top10 = sort(clusterTermWeight, decreasing = TRUE)[1:10]
   print(paste("Cluster", a))
   print(round(top10, 3))
-
+  
   # Keep the terms for the report.
   top.terms = rbind(top.terms, data.frame(cluster = a, term = names(top10)))
 }
@@ -133,6 +133,19 @@ for (a in 1:number.of.clusters) {
 }
 
 
-# 8. SAVE RESULTS ------------------------------------
+# 8. DO THE CLUSTERS JUST REPEAT THE SEARCH TERMS? ---
+
+# Chi-squared test of independence (Module 9) between the
+# search term of each post and its cluster.
+# H0: cluster membership is independent of the search term
+# HA: cluster membership depends on the search term
+# Some cells are small, so the p-value is simulated.
+keyword.table = table(posts$search_keyword, posts$cluster)
+keyword.table
+set.seed(123)
+chisq.test(keyword.table, simulate.p.value = TRUE, B = 2000)
+
+
+# 9. SAVE RESULTS ------------------------------------
 
 write.csv(posts, "data/processed/bluesky_clustered_posts.csv", row.names = FALSE)

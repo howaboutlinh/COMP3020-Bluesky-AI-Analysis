@@ -117,8 +117,8 @@ legend("bottomleft", legend = cluster.names, col = cluster.colours,
 
 # 7. PLOT A SUBGRAPH ---------------------------------
 
-# As in Module 7, keep authors connected to more than one other
-# author. Centrality above is still calculated on the full network g.
+# Keep authors with total degree greater than 1.
+# This counts incoming and outgoing follow edges.
 keep = degree(g) > 1
 g2 = induced_subgraph(g, V(g)[keep])
 vcount(g2)
@@ -139,9 +139,53 @@ legend("bottomleft", legend = cluster.names, col = cluster.colours,
        pch = 19, cex = 0.7, bty = "n")
 
 
-# 8. LIMITATIONS -------------------------------------
+# 8. LINK THE NETWORK TO ENGAGEMENT (RQ2 + RQ3) -----
 
-# - Up to about 300 follows were collected per author, so
+# Same randomisation test as Script 04 (Module 10):
+# do posts by connected authors get more engagement than
+# posts by isolated authors?
+# H0: mean engagement is equal for connected and isolated authors
+# HA: mean engagement differs (two-sided, alpha = 0.05)
+posts$engagement = posts$like_count + posts$repost_count + posts$reply_count
+
+# Connected = author has at least one follow tie in g.
+connected = posts$author_handle %in% V(g)$name
+isolatedEng = posts$engagement[!connected]
+connectedEng = posts$engagement[connected]
+length(isolatedEng)
+length(connectedEng)
+mean(isolatedEng)
+mean(connectedEng)
+
+netDiff = mean(connectedEng) - mean(isolatedEng)
+
+# Shuffle the connected / isolated labels 1000 times.
+shuffleMean = function(groupA, groupB) {
+  combined = c(groupA, groupB)
+  chosen = sample(length(combined), size = length(groupA), replace = FALSE)
+  mean(combined[-chosen]) - mean(combined[chosen])
+}
+set.seed(123)
+netDist = replicate(1000, shuffleMean(isolatedEng, connectedEng))
+
+hist(netDist, col = "lightblue", xlim = range(c(netDist, netDiff)),
+     main = "Connected vs Isolated Authors",
+     xlab = "Difference in mean engagement (connected - isolated)")
+abline(v = netDiff, col = "red", lwd = 2)
+
+# Two-sided p-value.
+netP = mean(abs(netDist) > abs(netDiff))
+netP
+
+# Among connected authors: followed by at least one other AI author?
+followed = names(in_degree)[in_degree > 0]
+mean(posts$engagement[posts$author_handle %in% followed])
+mean(posts$engagement[connected & !(posts$author_handle %in% followed)])
+
+
+# 9. LIMITATIONS -------------------------------------
+
+# - Up to about 200 follows were collected per author, so
 #   some real edges are missing.
 # - Following is not the same as discussing AI together.
 # - Centrality describes this sample only, not all of Bluesky.
